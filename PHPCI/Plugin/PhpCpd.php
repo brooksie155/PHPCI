@@ -74,7 +74,7 @@ class PhpCpd implements \PHPCI\Plugin
             );
         }
 
-        $this->phpci->log("<b>Duplication threshold = $this->threshold%</b>", '       ');
+        $this->phpci->log("Duplication threshold: $this->threshold%", '       ');
 
         return $result;
     }
