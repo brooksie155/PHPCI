@@ -73,9 +73,14 @@ class Builder
     * @var array
     */
     protected $config;
-    
+
     /**
-     * An array of key => value pairs that will be used for 
+     * @var string $lastTestOutput
+     */
+    private $lastTestOutput = '';
+
+    /**
+     * An array of key => value pairs that will be used for
      * interpolation and environment variables
      * @var array
      * @see setInterpolationVars()
@@ -193,7 +198,7 @@ class Builder
             $this->logFailure($ex->getMessage());
             $this->build->setStatus(3);
         }
-        
+
         // Clean up:
         $this->removeBuild();
 
@@ -206,12 +211,12 @@ class Builder
     }
 
     /**
-    * Used by this class, and plugins, to execute shell commands. 
+    * Used by this class, and plugins, to execute shell commands.
     */
     public function executeCommand()
     {
         $command = call_user_func_array('sprintf', func_get_args());
-        
+
         $this->log('Executing: ' . $command, '  ');
 
         $output = '';
@@ -220,13 +225,36 @@ class Builder
 
         if (!empty($output) && ($this->verbose || $status != 0)) {
             $this->log($output, '       ');
+            $this->setLastTestOutput($output);
         }
 
         return ($status == 0) ? true : false;
     }
 
     /**
-    * Add an entry to the build log. 
+     * Setter for output from the last run test executed
+     *
+     * @param string $output
+     * @return \PHPCI\Builder
+     */
+    public function setLastTestOutput($output)
+    {
+        $this->lastTestOutput = $output;
+        return $this;
+    }
+
+    /**
+     * Getter for output of last test executed
+     *
+     * @return string
+     */
+    public function getLastTestOutput()
+    {
+        return $this->lastTestOutput;
+    }
+
+    /**
+    * Add an entry to the build log.
     * @param string|string[]
     * @param string
     */
@@ -237,7 +265,7 @@ class Builder
                 if (is_callable($this->logCallback)) {
                     call_user_func_array($this->logCallback, array($prefix . $item));
                 }
-                
+
                 $this->log .= $prefix . $item . PHP_EOL;
             }
         } else {
@@ -255,7 +283,7 @@ class Builder
     }
 
     /**
-    * Add a success-coloured message to the log. 
+    * Add a success-coloured message to the log.
     * @param string
     */
     public function logSuccess($message)
@@ -264,14 +292,14 @@ class Builder
     }
 
     /**
-    * Add a failure-coloured message to the log. 
+    * Add a failure-coloured message to the log.
     * @param string
     */
     public function logFailure($message)
     {
         $this->log("\033[0;31m" . $message . "\033[0m");
     }
-    
+
     /**
      * Get an array key => value pairs that are used for interpolation
      * @return array
@@ -280,7 +308,7 @@ class Builder
     {
         return $this->interpolation_vars;
     }
-    
+
     /**
      * Replace every occurance of the interpolation vars in the given string
      * Example: "This is build %PHPCI_BUILD%" => "This is build 182"
@@ -297,7 +325,7 @@ class Builder
     }
 
     /**
-     * Sets the variables that will be used for interpolation. This must be run 
+     * Sets the variables that will be used for interpolation. This must be run
      * from setupBuild() because prior to that, we don't know the buildPath
      */
     protected function setInterpolationVars()
@@ -311,7 +339,7 @@ class Builder
             'PHPCI_BUILD_PATH'    => $this->buildPath,
         );
     }
-    
+
     /**
     * Set up a working copy of the project for building.
     */
@@ -321,14 +349,14 @@ class Builder
         $buildId            = 'project' . $this->build->getProject()->getId() . '-build' . $this->build->getId();
         $this->ciDir        = dirname(__FILE__) . '/../';
         $this->buildPath    = $this->ciDir . 'build/' . $buildId . '/';
-        
+
         $this->setInterpolationVars();
-        
+
         // Setup environment vars that will be accessible during exec()
         foreach ($this->getInterpolationVars() as $key => $value) {
             putenv($key.'='.$value);
         }
-        
+
         // Create a working copy of the project:
         if (!$this->build->createWorkingCopy($this, $this->buildPath)) {
             return false;
