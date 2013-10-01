@@ -32,6 +32,11 @@ class PhpCpd implements \PHPCI\Plugin
      */
     protected $ignore;
 
+    /**
+     * @var integer $threshold
+     */
+    protected $threshold = 0;
+
     public function __construct(\PHPCI\Builder $phpci, array $options = array())
     {
         $this->phpci        = $phpci;
@@ -39,6 +44,7 @@ class PhpCpd implements \PHPCI\Plugin
         $this->standard     = isset($options['standard']) ? $options['standard'] : 'PSR2';
         $this->path         = (isset($options['path'])) ? $options['path'] : '';
         $this->ignore       = (isset($options['ignore'])) ? (array)$options['ignore'] : $this->phpci->ignore;
+        $this->threshold    = (isset($options['threshold'])) ? $options['threshold'] : 0;
 
     }
 
@@ -53,10 +59,53 @@ class PhpCpd implements \PHPCI\Plugin
                 return ' --exclude ' . (substr($item, -1) == '/' ? substr($item, 0, -1) : $item);
             };
             $ignore = array_map($map, $this->ignore);
-
             $ignore = implode('', $ignore);
         }
 
-        return $this->phpci->executeCommand(PHPCI_BIN_DIR . 'phpcpd %s "%s"', $ignore, $this->phpci->buildPath.$this->path);
+        $result = $this->phpci->executeCommand(
+            PHPCI_BIN_DIR . 'phpcpd %s "%s"',
+            $ignore,
+            $this->phpci->buildPath.$this->path
+        );
+
+        if ($result !== true) {
+            $result = $this->checkThreshold(
+                $this->getDuplicatedPercentage()
+            );
+        }
+
+        $this->phpci->log("<b>Duplication threshold = $this->threshold%</b>", '       ');
+
+        return $result;
+    }
+
+    /**
+     * Atempt to read the duplicated percentage from the logged output for this
+     * test
+     *
+     * @return int
+     */
+    public function getDuplicatedPercentage()
+    {
+        if (is_array($this->phpci->getLastTestOutput())) {
+            foreach ($this->phpci->getLastTestOutput() as $logLine) {
+                preg_match("/([0-9\.]*)%/",$logLine,$matches);
+                if (isset($matches[1])) {
+                    return (float) trim($matches[1]);
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * Check if percentage is less than the allowed threshold
+     *
+     * @returns boolean
+     */
+    public function checkThreshold($percentageDuplicated)
+    {
+        return ($percentageDuplicated <= $this->threshold);
     }
 }
